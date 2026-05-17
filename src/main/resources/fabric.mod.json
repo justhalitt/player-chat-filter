@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "id": "playerfilter",
+  "version": "1.0.0",
+  "name": "Player Chat Filter",
+  "description": "Show only the chat messages of the selected player. Useful for Tier Lists.",
+  "authors": [
+    "justhalit"
+  ],
+  "contact": {
+    "homepage": "https://modrinth.com/mod/player-chat-filter"
+  },
+  "license": "MIT",
+  "icon": "assets/playerfilter/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.playerfilter.PlayerFilterMod"
+    ],
+    "modmenu": [
+      "com.playerfilter.ModMenuIntegration"
+    ]
+  },
+  "mixins": [
+    "playerfilter.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.18.1",
+    "minecraft": "~1.21.11",
+    "java": ">=21",
+    "fabric-api": "*"
+  },
+  "suggests": {
+    "modmenu": "*",
+    "cloth-config2": "*"
+  }
+}
