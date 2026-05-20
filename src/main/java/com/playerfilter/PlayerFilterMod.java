@@ -16,35 +16,79 @@ public class PlayerFilterMod implements ClientModInitializer {
     public static String filteredPlayer = null;
 
     private static final SuggestionProvider<net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource> ONLINE_PLAYERS =
-            (context, builder) -> {
-                Minecraft mc = Minecraft.getInstance();
-                if (mc.getConnection() != null) {
-                    for (PlayerInfo info : mc.getConnection().getListedOnlinePlayers()) {
-                        String name = info.getProfile().name();
-                        if (name.toLowerCase().startsWith(builder.getRemaining().toLowerCase())) {
-                            builder.suggest(name);
-                        }
+        (context, builder) -> {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.getConnection() != null) {
+                for (PlayerInfo info : mc.getConnection().getListedOnlinePlayers()) {
+                    String name = info.getProfile().name();
+                    if (name.toLowerCase().startsWith(builder.getRemaining().toLowerCase())) {
+                        builder.suggest(name);
                     }
                 }
-                return builder.buildFuture();
-            };
+            }
+            return builder.buildFuture();
+        };
 
+    /**
+     * Tries to extract the sender's name from a raw chat message string.
+     * Supports all common Minecraft server chat formats.
+     * Returns null if the message appears to be a system message (no player sender).
+     */
     private static String getSenderFromText(String raw) {
-        if (raw.startsWith("<")) {
-            int closeAngle = raw.indexOf(">");
-            if (closeAngle != -1) {
-                String inside = raw.substring(1, closeAngle).trim();
+        String stripped = raw.replaceAll("§[0-9a-fk-or]", "").trim();
+
+
+        if (stripped.startsWith("<")) {
+            int close = stripped.indexOf(">");
+            if (close != -1) {
+                String inside = stripped.substring(1, close).trim();
                 String[] parts = inside.split("\\s+");
                 return parts[parts.length - 1];
             }
         }
 
-        int colonIdx = raw.indexOf(": ");
-        if (colonIdx != -1) {
-            String possibleName = raw.substring(0, colonIdx).trim();
+        if (stripped.startsWith("[")) {
+            int close = stripped.indexOf("]");
+            if (close != -1 && close < 40) {
+                String inside = stripped.substring(1, close).trim();
+                if (!inside.isEmpty() && inside.length() <= 32) {
+                    String[] parts = inside.split("\\s+");
+                    return parts[parts.length - 1];
+                }
+            }
+        }
+
+
+        String[] separators = {
+            " \u00bb ",
+            " \u00ab ",
+            " -> ",
+            " >> ",
+            " | ",
+            " : ",
+            ": ",
+            " \u2192 ",
+            " \u27a4 ",
+            " \u2503 ",
+            " \u25b6 ",
+        };
+
+        int bestIdx = Integer.MAX_VALUE;
+        String bestSep = null;
+
+        for (String sep : separators) {
+            int idx = stripped.indexOf(sep);
+            if (idx != -1 && idx < bestIdx) {
+                bestIdx = idx;
+                bestSep = sep;
+            }
+        }
+
+        if (bestSep != null) {
+            String possibleName = stripped.substring(0, bestIdx).trim();
             String[] parts = possibleName.split("\\s+");
             String lastName = parts[parts.length - 1];
-            if (lastName.length() <= 32 && lastName.matches("[\\w\\W]{1,32}")) {
+            if (lastName.length() >= 1 && lastName.length() <= 32) {
                 return lastName;
             }
         }
@@ -104,33 +148,33 @@ public class PlayerFilterMod implements ClientModInitializer {
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
             dispatcher.register(
-                    ClientCommandManager.literal("chatfilter")
-                            .then(
-                                    ClientCommandManager.argument("player", StringArgumentType.word())
-                                            .suggests(ONLINE_PLAYERS)
-                                            .executes(ctx -> {
-                                                String playerName = StringArgumentType.getString(ctx, "player");
-                                                filteredPlayer = playerName;
-                                                ctx.getSource().sendFeedback(
-                                                        Component.literal("Chat filter enabled: ")
-                                                                .withStyle(ChatFormatting.GREEN)
-                                                                .append(Component.literal(playerName).withStyle(ChatFormatting.YELLOW))
-                                                );
-                                                return 1;
-                                            })
-                            )
-            );
-
-            dispatcher.register(
-                    ClientCommandManager.literal("chatfilteroff")
+                ClientCommandManager.literal("chatfilter")
+                    .then(
+                        ClientCommandManager.argument("player", StringArgumentType.word())
+                            .suggests(ONLINE_PLAYERS)
                             .executes(ctx -> {
-                                filteredPlayer = null;
+                                String playerName = StringArgumentType.getString(ctx, "player");
+                                filteredPlayer = playerName;
                                 ctx.getSource().sendFeedback(
-                                        Component.literal("Chat filter disabled.")
-                                                .withStyle(ChatFormatting.RED)
+                                    Component.literal("Chat filter enabled: ")
+                                        .withStyle(ChatFormatting.GREEN)
+                                        .append(Component.literal(playerName).withStyle(ChatFormatting.YELLOW))
                                 );
                                 return 1;
                             })
+                    )
+            );
+
+            dispatcher.register(
+                ClientCommandManager.literal("chatfilteroff")
+                    .executes(ctx -> {
+                        filteredPlayer = null;
+                        ctx.getSource().sendFeedback(
+                            Component.literal("Chat filter disabled.")
+                                .withStyle(ChatFormatting.RED)
+                        );
+                        return 1;
+                    })
             );
         });
     }
