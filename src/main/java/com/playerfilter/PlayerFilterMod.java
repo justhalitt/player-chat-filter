@@ -29,11 +29,6 @@ public class PlayerFilterMod implements ClientModInitializer {
             return builder.buildFuture();
         };
 
-    /**
-     * Tries to extract the sender's name from a raw chat message string.
-     * Supports all common Minecraft server chat formats.
-     * Returns null if the message appears to be a system message (no player sender).
-     */
     private static String getSenderFromText(String raw) {
         String stripped = raw.replaceAll("§[0-9a-fk-or]", "").trim();
 
